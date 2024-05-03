@@ -6,5 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-m3u = {git = "https://github.com/shnorbluk/m3u", branch = "iptv", features = ["iptv"]}
+m3u = {git = "https://github.com/LindonAliu/m3u", branch = "master", features = ["iptv"]}
 #m3u = {path = "../m3u", features=["iptv"]}
+url = "2.2.2"
