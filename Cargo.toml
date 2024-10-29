@@ -9,3 +9,6 @@ edition = "2021"
 m3u = {git = "https://github.com/LindonAliu/m3u", branch = "master", features = ["iptv"]}
 #m3u = {path = "../m3u", features=["iptv"]}
 url = "2.2.2"
+iced = { version = "0.9", features = ["wgpu", "image"] }
+iced_lazy = "0.4"
+webbrowser = "0.6.0"

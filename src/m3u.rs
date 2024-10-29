@@ -4,10 +4,10 @@ use m3u::Reader;
 
 use crate::types::Result;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Channel {
     pub name: String,
-    pub url: m3u::Entry,
+    pub url: String,
     pub id: Option<String>,
     pub logo_url: Option<String>,
 }
@@ -24,7 +24,10 @@ pub fn parse_m3u(m3u_filepath: &str) -> Result<Vec<Channel>> {
             let extinf = clone.parsed_extinf().as_ref().unwrap();
             let props = &extinf.iptv_props;
             let name = &extinf.name;
-            let url = entry.entry.clone();
+            let url = match &entry.entry {
+                m3u::Entry::Url(u) => u.to_string(),
+                m3u::Entry::Path(p) => p.display().to_string(),
+            };
             let id = props.get("tvg-id").map(|s| s.to_string());
             let logo_url = props.get("tvg-logo").map(|s| s.to_string());
 
