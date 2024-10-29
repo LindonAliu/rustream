@@ -3,11 +3,13 @@ name = "rustream"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 m3u = {git = "https://github.com/LindonAliu/m3u", branch = "master", features = ["iptv"]}
-#m3u = {path = "../m3u", features=["iptv"]}
 url = "2.2.2"
-iced = { version = "0.9", features = ["glow"] }
+iced = { version = "0.9", features = ["glow", "canvas"] }
 webbrowser = "0.6.0"
+gstreamer = "0.19"
+gstreamer-video = "0.19"
+gstreamer-audio = "0.19"
+gstreamer-gl = "0.19"
+glib = "0.20.4"
