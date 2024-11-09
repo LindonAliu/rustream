@@ -1,4 +1,3 @@
-use crate::m3u::Channel;
 use crate::m3u::Group;
 use crate::types::Result;
 use crate::views::group_view::GroupView;
@@ -17,17 +16,13 @@ pub fn run(groups: Vec<Group>) -> Result<()> {
 
 struct App {
     current_view: Box<dyn View>,
-    m3u_path: Option<String>,
-    groups: Vec<Group>,
 }
 
 impl App {
     fn new(groups: Vec<Group>) -> (Self, Task<ViewMessage>) {
         (
             Self {
-                current_view: Box::new(GroupView::new(groups.clone())),
-                m3u_path: None,
-                groups,
+                current_view: Box::new(GroupView::new(groups.clone(), None)),
             },
             Task::none(),
         )

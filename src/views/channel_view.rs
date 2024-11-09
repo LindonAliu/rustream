@@ -1,14 +1,14 @@
 use super::{GroupView, View, ViewMessage};
 use crate::m3u::{Channel, Group};
-use iced::widget::{button, scrollable, text, text_input, Column, Row};
+use iced::widget::{button, scrollable, text_input, Column, Row};
 use iced::{Element, Length};
 
 use std::cmp::Ordering;
-use std::io::{BufRead, BufReader};
+use std::io::BufRead;
 use std::process::Stdio;
 
 pub struct ChannelView {
-    group: Group,
+    m3u_filepath: Option<String>,
     groups: Vec<Group>,
     channels: Vec<Channel>,
     filtered_channels: Vec<Channel>,
@@ -23,9 +23,9 @@ pub enum Message {
 }
 
 impl ChannelView {
-    pub fn new(group: Group, groups: Vec<Group>) -> Self {
+    pub fn new(group: Group, groups: Vec<Group>, m3u_filepath: Option<String>) -> Self {
         Self {
-            group: group.clone(),
+            m3u_filepath,
             groups,
             channels: group.channels.clone(),
             filtered_channels: group.channels,
@@ -55,7 +55,10 @@ impl View for ChannelView {
         match message {
             ViewMessage::ChannelViewMessage(msg) => match msg {
                 Message::BackToGroups => {
-                    return Some(Box::new(GroupView::new(self.groups.clone())));
+                    return Some(Box::new(GroupView::new(
+                        self.groups.clone(),
+                        self.m3u_filepath.clone(),
+                    )));
                 }
                 Message::ChannelSelected(index) => {
                     let selected_channel = self.filtered_channels[index].clone();

@@ -1,11 +1,12 @@
-use super::{ChannelView, View, ViewMessage};
+use super::{ChannelView, SettingsView, View, ViewMessage};
 use crate::m3u::Group;
-use iced::widget::{button, scrollable, text, text_input, Column, Row};
+use iced::widget::{button, scrollable, text_input, Column, Row};
 use iced::{Element, Length};
 
 use std::cmp::Ordering;
 
 pub struct GroupView {
+    m3u_path: Option<String>,
     groups: Vec<Group>,
     filtered_groups: Vec<Group>,
     search_text: String,
@@ -14,12 +15,14 @@ pub struct GroupView {
 #[derive(Debug, Clone)]
 pub enum Message {
     GroupSelected(usize),
+    SettingsSelected,
     SearchTextChanged(String),
 }
 
 impl GroupView {
-    pub fn new(groups: Vec<Group>) -> Self {
+    pub fn new(groups: Vec<Group>, m3u_path: Option<String>) -> Self {
         Self {
+            m3u_path,
             groups: groups.clone(),
             filtered_groups: groups,
             search_text: String::new(),
@@ -33,7 +36,17 @@ impl View for GroupView {
             ViewMessage::GroupViewMessage(msg) => match msg {
                 Message::GroupSelected(index) => {
                     let selected_group = self.filtered_groups[index].clone();
-                    return Some(Box::new(ChannelView::new(selected_group, self.groups.clone())));
+                    return Some(Box::new(ChannelView::new(
+                        selected_group,
+                        self.groups.clone(),
+                        self.m3u_path.clone(),
+                    )));
+                }
+                Message::SettingsSelected => {
+                    return Some(Box::new(SettingsView::new(
+                        self.groups.clone(),
+                        self.m3u_path.clone(),
+                    )));
                 }
                 Message::SearchTextChanged(new_text) => {
                     self.search_text = new_text;
@@ -46,6 +59,10 @@ impl View for GroupView {
     }
 
     fn view(&self) -> Element<ViewMessage> {
+        let settings_button = button("Paramètres")
+            .on_press(ViewMessage::GroupViewMessage(Message::SettingsSelected))
+            .padding(10);
+
         let search_bar = text_input("Rechercher", &self.search_text)
             .padding(10)
             .size(20)
@@ -76,6 +93,7 @@ impl View for GroupView {
 
         Column::new()
             .spacing(20)
+            .push(settings_button)
             .push(search_bar)
             .push(scrollable(groups).height(Length::Fill).width(Length::Fill))
             .into()
