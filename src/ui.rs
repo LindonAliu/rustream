@@ -1,249 +1,298 @@
-use crate::m3u::Channel;
-use gstreamer as gst;
-use gstreamer::prelude::*;
-use iced::widget::{Button, Column, Container, Scrollable, Text, TextInput};
-use iced::{alignment, executor, Application, Command, Element, Length};
-use std::cmp::Ordering;
-use std::collections::HashMap;
+use crate::m3u::{Channel, Group};
+use crate::types::Result;
 
-pub struct M3UApp {
+use iced::widget::{button, container, image, scrollable, text, text_input, Column, Row};
+use iced::{Element, Length, Task, Theme};
+
+use reqwest::blocking::get;
+
+use std::cmp::Ordering;
+use std::io::BufRead;
+use std::process::Stdio;
+
+pub fn run(groups: Vec<Group>) -> Result<()> {
+    iced::application("Rustream", State::update, State::view)
+        .theme(|_| Theme::Dark)
+        .resizable(true)
+        .centered()
+        .run_with(|| State::new(groups))?;
+    Ok(())
+}
+
+pub struct State {
+    groups: Vec<Group>,
+    filtered_groups: Vec<Group>,
+    selected_group: Option<Group>,
     channels: Vec<Channel>,
     filtered_channels: Vec<Channel>,
     search_text: String,
-    video_manager: VideoManager,
-    viewing_video: bool,
-    current_channel: Option<String>,
 }
 
-impl Default for M3UApp {
+impl Default for State {
     fn default() -> Self {
         Self {
+            groups: Vec::new(),
+            filtered_groups: Vec::new(),
+            selected_group: None,
             channels: Vec::new(),
             filtered_channels: Vec::new(),
             search_text: String::new(),
-            video_manager: VideoManager::new(),
-            viewing_video: false,
-            current_channel: None,
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    BackToGroups,
+    GroupSelected(usize),
     ChannelSelected(usize),
     SearchTextChanged(String),
-    StopVideo,
-    PauseVideo,
-    ResumeVideo,
 }
 
-impl Application for M3UApp {
-    type Executor = executor::Default;
-    type Message = Message;
-    type Flags = Vec<Channel>;
-    type Theme = iced::Theme;
-
-    fn new(channels: Self::Flags) -> (Self, Command<Self::Message>) {
+impl State {
+    fn new(groups: Vec<Group>) -> (Self, Task<Message>) {
         (
-            M3UApp {
-                channels: channels.clone(),
-                filtered_channels: channels,
-                search_text: String::new(),
-                video_manager: VideoManager::new(),
-                viewing_video: false,
-                current_channel: None,
+            Self {
+                groups: groups.clone(),
+                filtered_groups: groups,
+                ..Default::default()
             },
-            Command::none(),
+            Task::none(),
         )
     }
-
-    fn title(&self) -> String {
-        String::from("Lecteur M3U")
-    }
-
-    fn update(&mut self, message: Message) -> Command<Self::Message> {
+    fn update(state: &mut State, message: Message) {
         match message {
+            Message::BackToGroups => {
+                state.selected_group = None;
+                state.channels.clear();
+                state.filtered_channels.clear();
+                state.search_text.clear();
+                update_filtered_list(state);
+            }
+            Message::GroupSelected(index) => {
+                state.selected_group = Some(state.groups[index].clone());
+                state.channels = state.groups[index].channels.clone();
+                state.search_text.clear();
+                update_filtered_list(state);
+            }
             Message::ChannelSelected(index) => {
-                let selected_channel = self.filtered_channels[index].clone();
+                let selected_channel = state.filtered_channels[index].clone();
                 println!("Chaîne sélectionnée : {}", selected_channel.name);
-                self.video_manager.play_channel(&selected_channel.url);
-                self.viewing_video = true;
-                self.current_channel = Some(selected_channel.url);
+                let args = Self::get_play_args(selected_channel).unwrap();
+                let mut cmd = std::process::Command::new("mpv")
+                    .args(args)
+                    .stdout(Stdio::piped())
+                    .spawn()
+                    .unwrap();
+
+                let status = cmd.wait().unwrap();
+
+                if !status.success() {
+                    let stdout = cmd.stdout.take();
+                    if let Some(stdout) = stdout {
+                        let mut error: String = "".to_string();
+                        let mut lines = std::io::BufReader::new(stdout).lines();
+                        let mut first = true;
+                        while let Some(line) = lines.next() {
+                            error += &line.unwrap();
+                            if !first {
+                                error += "\n"
+                            } else {
+                                first = false;
+                            }
+                        }
+                        if error != "" {
+                            eprintln!("{}", error);
+                        } else {
+                            eprintln!("Mpv encountered an unknown error");
+                        }
+                    }
+                }
             }
             Message::SearchTextChanged(new_text) => {
-                self.search_text = new_text;
-                if self.search_text.is_empty() {
-                    self.filtered_channels = self.channels.clone();
-                } else {
-                    let search_lower = self.search_text.to_lowercase().replace(' ', "");
-                    let mut filtered: Vec<_> = self
-                        .channels
-                        .iter()
-                        .filter(|channel| {
-                            let channel_name_lower = channel.name.to_lowercase().replace(' ', "");
-                            search_lower.chars().all(|c| channel_name_lower.contains(c))
-                        })
-                        .cloned()
-                        .collect();
-
-                    filtered.sort_by(|a, b| {
-                        let channel_a_name = a.name.to_lowercase().replace(' ', "");
-                        let channel_b_name = b.name.to_lowercase().replace(' ', "");
-
-                        let score_a = calculate_match_score(&search_lower, &channel_a_name);
-                        let score_b = calculate_match_score(&search_lower, &channel_b_name);
-
-                        score_b.partial_cmp(&score_a).unwrap_or(Ordering::Equal)
-                    });
-
-                    self.filtered_channels = filtered;
-                }
+                state.search_text = new_text;
+                update_filtered_list(state);
             }
-            Message::StopVideo => {
-                if let Some(channel_url) = &self.current_channel {
-                    self.video_manager.stop_channel(channel_url);
-                }
-                self.viewing_video = false;
-                self.current_channel = None;
-            }
-            Message::PauseVideo => {
-                if let Some(channel_url) = &self.current_channel {
-                    self.video_manager.pause_channel(channel_url);
-                }
-            }
-            Message::ResumeVideo => {
-                if let Some(channel_url) = &self.current_channel {
-                    self.video_manager.resume_channel(channel_url);
-                }
-            }
-        }
-        Command::none()
+        };
     }
 
-    fn view(&self) -> Element<Message> {
-        let content: Element<_> = if self.viewing_video {
-            let stop_button = Button::new(Text::new("Retour"))
-                .padding(20)
-                .on_press(Message::StopVideo);
+    fn get_play_args(channel: Channel) -> Result<Vec<String>> {
+        let mut args = Vec::new();
+        args.push(channel.url.clone());
 
-            let pause_button = Button::new(Text::new("Pause"))
-                .padding(20)
-                .on_press(Message::PauseVideo);
+        // if is not stream
+        if channel.url.ends_with(".mkv") || channel.url.ends_with(".mp4") {
+            args.push("--save-position-on-quit".to_string());
+        }
 
-            let resume_button = Button::new(Text::new("Reprendre"))
-                .padding(20)
-                .on_press(Message::ResumeVideo);
+        // args.push("--cache=no".to_string());
+        args.push(format!("--title={}", channel.name));
+        args.push("--msg-level=all=error".to_string());
+
+        Ok(args)
+    }
+
+    fn view(state: &State) -> Element<'_, Message> {
+        let search_bar = text_input("Rechercher", &state.search_text)
+            .padding(10)
+            .size(20)
+            .on_input(Message::SearchTextChanged);
+
+        let content = if let Some(selected_group) = &state.selected_group {
+            let back_button = button("Retour")
+                .on_press(Message::BackToGroups)
+                .padding(10)
+                .width(Length::Fill)
+                .height(50);
+
+            let channels = state
+                .filtered_channels
+                .iter()
+                .filter(|channel| channel.group == selected_group.name)
+                .enumerate()
+                .collect::<Vec<_>>()
+                .chunks(4)
+                .fold(Column::new().spacing(10), |column, chunk| {
+                    let row = chunk
+                        .iter()
+                        .fold(Row::new().spacing(10), |row, (index, channel)| {
+                            row.push(create_button_channel(channel, *index))
+                        });
+                    column.push(row)
+                });
 
             Column::new()
                 .spacing(20)
-                .align_items(alignment::Alignment::Center)
-                .push(stop_button)
-                .push(pause_button)
-                .push(resume_button)
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .into()
-        } else {
-            let search_bar = TextInput::new("Rechercher une chaîne...", &self.search_text)
-                .on_input(Message::SearchTextChanged)
-                .padding(10)
-                .size(16);
-
-            let channels_list = if self.filtered_channels.is_empty() {
-                Column::new().push(Text::new("Aucune chaîne trouvée").size(16))
-            } else {
-                self.filtered_channels.iter().enumerate().take(100).fold(
-                    Column::new().spacing(10).padding(20),
-                    |column, (i, channel)| {
-                        let button = Button::new(
-                            Text::new(&channel.name)
-                                .size(16)
-                                .horizontal_alignment(alignment::Horizontal::Left),
-                        )
-                        .on_press(Message::ChannelSelected(i))
-                        .padding(10)
-                        .width(Length::Fill);
-
-                        column.push(button)
-                    },
+                .push(search_bar)
+                .push(back_button)
+                .push(
+                    scrollable(channels)
+                        .height(Length::Fill)
+                        .width(Length::Fill),
                 )
-            };
+        } else {
+            let groups = state
+                .filtered_groups
+                .iter()
+                .enumerate()
+                .collect::<Vec<_>>()
+                .chunks(4)
+                .fold(Column::new().spacing(10), |column, chunk| {
+                    let row = chunk
+                        .iter()
+                        .fold(Row::new().spacing(10), |row, (index, group)| {
+                            row.push(
+                                button(group.name.as_str())
+                                    .on_press(Message::GroupSelected(*index))
+                                    .padding(10)
+                                    .width(Length::Fill)
+                                    .height(50),
+                            )
+                        });
+                    column.push(row)
+                });
 
             Column::new()
+                .spacing(20)
                 .push(search_bar)
-                .push(
-                    Scrollable::new(channels_list)
-                        .width(Length::Fill)
-                        .height(Length::Fill),
-                )
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .into()
+                .push(scrollable(groups).height(Length::Fill).width(Length::Fill))
         };
 
-        Container::new(content)
+        container(content)
+            .padding(20)
             .width(Length::Fill)
             .height(Length::Fill)
             .into()
     }
 }
 
-struct VideoManager {
-    pipelines: HashMap<String, gst::Pipeline>,
+fn create_button_channel<'a>(channel: &'a Channel, index: usize) -> Element<'a, Message> {
+    let mut row = Row::new().spacing(10);
+
+    // if let Some(logo_url) = &channel.logo_url {
+    //     if let Ok(logo) = get(logo_url) {
+    //         if let Ok(bytes) = logo.bytes() {
+    //             println!("Logo téléchargé : {}", bytes.len());
+    //             let handle = iced::widget::image::Handle::from_bytes(bytes.to_vec());
+    //             let image = image(handle).width(50).height(50);
+    //             row = row.push(image);
+    //         }
+    //     }
+    // }
+
+    row = row.push(text(channel.name.as_str()));
+
+    button(row)
+        .on_press(Message::ChannelSelected(index))
+        .padding(10)
+        .width(Length::Fill)
+        .height(50)
+        .into()
 }
 
-impl VideoManager {
-    fn new() -> Self {
-        VideoManager {
-            pipelines: HashMap::new(),
-        }
+fn update_filtered_list(state: &mut State) {
+    if state.selected_group.is_none() {
+        update_filtered_groups(state);
+    } else {
+        update_filtered_channels(state);
     }
+}
 
-    fn play_channel(&mut self, channel_url: &str) {
-        if let Some(pipeline) = self.pipelines.get(channel_url) {
-            pipeline
-                .set_state(gst::State::Playing)
-                .expect("Impossible de démarrer le pipeline");
-        } else {
-            let pipeline = gst::parse_launch(&format!(
-                "playbin uri={} video-sink=autovideosink buffer-size=5000000",
-                channel_url
-            ))
-            .expect("Impossible de créer le pipeline GStreamer");
-            // Set buffer duration in ms
-            pipeline.set_property_from_str("buffer-size", "5000");
-            pipeline
-                .set_state(gst::State::Playing)
-                .expect("Impossible de démarrer le pipeline");
-            self.pipelines.insert(
-                channel_url.to_string(),
-                pipeline.downcast::<gst::Pipeline>().unwrap(),
-            );
-        }
+fn update_filtered_groups(state: &mut State) {
+    if state.search_text.is_empty() {
+        state.filtered_groups = state.groups.clone();
+    } else {
+        let search_lower = state.search_text.to_lowercase().replace(' ', "");
+        let mut filtered: Vec<_> = state
+            .groups
+            .iter()
+            .filter(|group| {
+                let group_name_lower = group.name.to_lowercase().replace(' ', "");
+                search_lower.chars().all(|c| group_name_lower.contains(c))
+            })
+            .cloned()
+            .collect();
+
+        filtered.sort_by(|a, b| {
+            let group_a_name = a.name.to_lowercase().replace(' ', "");
+            let group_b_name = b.name.to_lowercase().replace(' ', "");
+
+            let score_a = calculate_match_score(&search_lower, &group_a_name);
+            let score_b = calculate_match_score(&search_lower, &group_b_name);
+
+            score_b.partial_cmp(&score_a).unwrap_or(Ordering::Equal)
+        });
+
+        state.filtered_groups = filtered;
     }
+}
 
-    fn stop_channel(&mut self, channel_url: &str) {
-        if let Some(pipeline) = self.pipelines.get(channel_url) {
-            pipeline
-                .set_state(gst::State::Null)
-                .expect("Impossible d'arrêter le pipeline");
-        }
-    }
+fn update_filtered_channels(state: &mut State) {
+    if state.search_text.is_empty() {
+        state.filtered_channels = state.channels.clone();
+    } else {
+        let search_lower = state.search_text.to_lowercase().replace(' ', "");
+        let mut filtered: Vec<_> = state
+            .channels
+            .iter()
+            .filter(|channel| {
+                let channel_name_lower = channel.name.to_lowercase().replace(' ', "");
+                search_lower.chars().all(|c| channel_name_lower.contains(c))
+            })
+            .cloned()
+            .collect();
 
-    fn pause_channel(&mut self, channel_url: &str) {
-        if let Some(pipeline) = self.pipelines.get(channel_url) {
-            pipeline
-                .set_state(gst::State::Paused)
-                .expect("Impossible de mettre en pause le pipeline");
-        }
-    }
+        filtered.sort_by(|a, b| {
+            let channel_a_name = a.name.to_lowercase().replace(' ', "");
+            let channel_b_name = b.name.to_lowercase().replace(' ', "");
 
-    fn resume_channel(&mut self, channel_url: &str) {
-        if let Some(pipeline) = self.pipelines.get(channel_url) {
-            pipeline
-                .set_state(gst::State::Playing)
-                .expect("Impossible de reprendre le pipeline");
-        }
+            let score_a = calculate_match_score(&search_lower, &channel_a_name);
+            let score_b = calculate_match_score(&search_lower, &channel_b_name);
+
+            score_b.partial_cmp(&score_a).unwrap_or(Ordering::Equal)
+        });
+
+        state.filtered_channels = filtered;
     }
 }
 

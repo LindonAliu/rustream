@@ -1,22 +1,13 @@
-use gstreamer as gst;
-use gstreamer::prelude::*;
-use iced::Application;
 use rustream::m3u::parse_m3u;
 use rustream::params::{parse_args, Params};
 use rustream::types::Result;
-use rustream::ui::M3UApp;
+use rustream::ui::run as ui_run;
 
 fn run() -> Result<()> {
-    // Initialiser GStreamer
-    gst::init()?;
-
     let params: Params = parse_args(std::env::args())?;
     let channels = parse_m3u(&params.m3u_filepath)?;
 
-    M3UApp::run(iced::Settings {
-        flags: channels,
-        ..iced::Settings::default()
-    })?;
+    ui_run(channels)?;
 
     Ok(())
 }
