@@ -10,4 +10,4 @@ m3u = { git = "https://github.com/LindonAliu/m3u", branch = "master", features =
     "iptv",
 ] }
 url = "2.5.3"
-tokio = { version = "1.41.1", features = ["full"] }
+rfd = "0.15"
