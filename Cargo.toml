@@ -4,12 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-m3u = {git = "https://github.com/LindonAliu/m3u", branch = "master", features = ["iptv"]}
-url = "2.2.2"
-iced = { version = "0.9", features = ["glow", "canvas"] }
-webbrowser = "0.6.0"
-gstreamer = "0.19"
-gstreamer-video = "0.19"
-gstreamer-audio = "0.19"
-gstreamer-gl = "0.19"
-glib = "0.20.4"
+iced = { version = "0.13.1", features = ["image"] }
+reqwest = { version = "0.12.9", features = ["blocking"] }
+m3u = { git = "https://github.com/LindonAliu/m3u", branch = "master", features = [
+    "iptv",
+] }
+url = "2.5.3"
+tokio = { version = "1.41.1", features = ["full"] }
