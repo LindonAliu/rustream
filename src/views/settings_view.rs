@@ -1,8 +1,9 @@
 use super::{GroupView, View, ViewMessage};
 use crate::m3u::{parse_m3u, Group};
 
-use iced::widget::{button, text, Column};
-use iced::Element;
+use iced::alignment::Horizontal;
+use iced::widget::{button, text, Column, Container, Space};
+use iced::{Element, Length};
 
 use rfd::FileDialog;
 
@@ -61,21 +62,32 @@ impl View for SettingsView {
 
     fn view(&self) -> Element<ViewMessage> {
         let file_picker = button("Sélectionner un fichier M3U")
-            .on_press(ViewMessage::SettingsViewMessage(Message::SelectFile));
+            .on_press(ViewMessage::SettingsViewMessage(Message::SelectFile))
+            .padding(10);
 
         let back_button = button("Retour")
             .on_press(ViewMessage::SettingsViewMessage(Message::BackToGroups))
             .padding(10);
 
         let m3u_path = match &self.m3u_path {
-            Some(path) => text(path),
-            None => text("Aucun fichier M3U sélectionné"),
+            Some(path) => text(path).size(16),
+            None => text("Aucun fichier M3U sélectionné").size(16),
         };
 
-        Column::new()
-            .push(file_picker)
-            .push(m3u_path)
-            .push(back_button)
-            .into()
+        Container::new(
+            Column::new()
+                .push(Space::with_height(20))
+                .push(file_picker)
+                .push(Space::with_height(10))
+                .push(m3u_path)
+                .push(Space::with_height(10))
+                .push(back_button)
+                .align_x(Horizontal::Center)
+                .spacing(20)
+                .padding(20),
+        )
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
+        .into()
     }
 }
