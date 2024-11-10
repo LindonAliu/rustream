@@ -1,6 +1,6 @@
 use super::{GroupView, View, ViewMessage};
 use crate::m3u::{Channel, Group};
-use iced::widget::{button, scrollable, text_input, Column, Row};
+use iced::widget::{button, scrollable, text_input, Column, Row, Container};
 use iced::{Element, Length};
 
 use std::cmp::Ordering;
@@ -47,6 +47,74 @@ impl ChannelView {
         args.push("--msg-level=all=error".to_string());
 
         Ok(args)
+    }
+
+    fn create_search_bar(&self) -> Element<ViewMessage> {
+        text_input("Rechercher", &self.search_text)
+            .padding(10)
+            .size(20)
+            .on_input(|s| ViewMessage::ChannelViewMessage(Message::SearchTextChanged(s)))
+            .into()
+    }
+
+    fn create_back_button(&self) -> Element<ViewMessage> {
+        button("Retour")
+            .on_press(ViewMessage::ChannelViewMessage(Message::BackToGroups))
+            .padding(10)
+            .width(Length::Fill)
+            .height(50)
+            .into()
+    }
+
+    fn create_channel_buttons(&self) -> Column<ViewMessage> {
+        self.filtered_channels
+            .iter()
+            .enumerate()
+            .collect::<Vec<_>>()
+            .chunks(4)
+            .fold(Column::new().spacing(10), |column, chunk| {
+                let row = chunk
+                    .iter()
+                    .fold(Row::new().spacing(10), |row, (index, channel)| {
+                        row.push(
+                            button(channel.name.as_str())
+                                .on_press(ViewMessage::ChannelViewMessage(
+                                    Message::ChannelSelected(*index),
+                                ))
+                                .padding(10)
+                                .width(Length::Fill)
+                                .height(50),
+                        )
+                    });
+                column.push(row)
+            })
+    }
+
+    fn create_ui(&self) -> Column<ViewMessage> {
+        let search_bar = self.create_search_bar();
+        let back_button = self.create_back_button();
+        let channels = self.create_channel_buttons();
+
+        Column::new()
+            .spacing(20)
+            .push(
+                Container::new(
+                    Row::new()
+                        .spacing(10)
+                        .push(search_bar)
+                        .push(back_button)
+                )
+                .padding(10)
+                .center_x(Length::Fill),
+            )
+            .push(
+                Container::new(
+                    scrollable(channels)
+                        .height(Length::Fill)
+                        .width(Length::Fill)
+                )
+                .padding(10),
+            )
     }
 }
 
@@ -105,49 +173,9 @@ impl View for ChannelView {
     }
 
     fn view(&self) -> Element<ViewMessage> {
-        let search_bar = text_input("Rechercher", &self.search_text)
-            .padding(10)
-            .size(20)
-            .on_input(|s| ViewMessage::ChannelViewMessage(Message::SearchTextChanged(s)));
-
-        let back_button = button("Retour")
-            .on_press(ViewMessage::ChannelViewMessage(Message::BackToGroups))
-            .padding(10)
-            .width(Length::Fill)
-            .height(50);
-
-        let channels = self
-            .filtered_channels
-            .iter()
-            .enumerate()
-            .collect::<Vec<_>>()
-            .chunks(4)
-            .fold(Column::new().spacing(10), |column, chunk| {
-                let row = chunk
-                    .iter()
-                    .fold(Row::new().spacing(10), |row, (index, channel)| {
-                        row.push(
-                            button(channel.name.as_str())
-                                .on_press(ViewMessage::ChannelViewMessage(
-                                    Message::ChannelSelected(*index),
-                                ))
-                                .padding(10)
-                                .width(Length::Fill)
-                                .height(50),
-                        )
-                    });
-                column.push(row)
-            });
-
-        Column::new()
-            .spacing(20)
-            .push(search_bar)
-            .push(back_button)
-            .push(
-                scrollable(channels)
-                    .height(Length::Fill)
-                    .width(Length::Fill),
-            )
+        Container::new(self.create_ui())
+            .padding(20)
+            .center_x(Length::Fill)
             .into()
     }
 }
