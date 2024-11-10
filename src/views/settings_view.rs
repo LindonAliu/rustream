@@ -73,6 +73,7 @@ impl View for SettingsView {
             Some(path) => text(path).size(16),
             None => text("Aucun fichier M3U sélectionné").size(16),
         };
+        let data = text(format!("{} groupes chargés", self.groups.len())).size(16);
 
         Container::new(
             Column::new()
@@ -81,6 +82,8 @@ impl View for SettingsView {
                 .push(Space::with_height(10))
                 .push(m3u_path)
                 .push(Space::with_height(10))
+                .push(data)
+                .push(Space::with_height(20))
                 .push(back_button)
                 .align_x(Horizontal::Center)
                 .spacing(20)
