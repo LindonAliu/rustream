@@ -1,6 +1,6 @@
 use super::{ChannelView, SettingsView, View, ViewMessage};
 use crate::m3u::Group;
-use iced::widget::{button, scrollable, text_input, Column, Row};
+use iced::widget::{button, scrollable, text_input, Column, Container, Row};
 use iced::{Element, Length};
 
 use std::cmp::Ordering;
@@ -91,12 +91,27 @@ impl View for GroupView {
                 column.push(row)
             });
 
-        Column::new()
-            .spacing(20)
-            .push(settings_button)
-            .push(search_bar)
-            .push(scrollable(groups).height(Length::Fill).width(Length::Fill))
-            .into()
+        Container::new(
+            Column::new()
+                .spacing(20)
+                .push(
+                    Container::new(settings_button)
+                        .padding(10)
+                        .center_x(Length::Fill),
+                )
+                .push(
+                    Container::new(search_bar)
+                        .padding(10)
+                        .center_x(Length::Fill),
+                )
+                .push(
+                    Container::new(scrollable(groups).height(Length::Fill).width(Length::Fill))
+                        .padding(10),
+                ),
+        )
+        .padding(20)
+        .center_x(Length::Fill)
+        .into()
     }
 }
 
