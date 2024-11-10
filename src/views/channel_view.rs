@@ -34,15 +34,12 @@ impl ChannelView {
     }
 
     fn get_play_args(channel: &Channel) -> Result<Vec<String>, std::io::Error> {
-        let mut args = Vec::new();
-        args.push(channel.url.clone());
+        let mut args = vec![channel.url.clone()];
 
-        // if is not stream
         if channel.url.ends_with(".mkv") || channel.url.ends_with(".mp4") {
             args.push("--save-position-on-quit".to_string());
         }
 
-        // args.push("--cache=no".to_string());
         args.push(format!("--title={}", channel.name));
         args.push("--msg-level=all=error".to_string());
 
@@ -73,19 +70,15 @@ impl ChannelView {
             .collect::<Vec<_>>()
             .chunks(4)
             .fold(Column::new().spacing(10), |column, chunk| {
-                let row = chunk
-                    .iter()
-                    .fold(Row::new().spacing(10), |row, (index, channel)| {
-                        row.push(
-                            button(channel.name.as_str())
-                                .on_press(ViewMessage::ChannelViewMessage(
-                                    Message::ChannelSelected(*index),
-                                ))
-                                .padding(10)
-                                .width(Length::Fill)
-                                .height(50),
-                        )
-                    });
+                let row = chunk.iter().fold(Row::new().spacing(10), |row, (index, channel)| {
+                    row.push(
+                        button(channel.name.as_str())
+                            .on_press(ViewMessage::ChannelViewMessage(Message::ChannelSelected(*index)))
+                            .padding(10)
+                            .width(Length::Fill)
+                            .height(50),
+                    )
+                });
                 column.push(row)
             })
     }
@@ -141,20 +134,19 @@ impl View for ChannelView {
                     let status = cmd.wait().unwrap();
 
                     if !status.success() {
-                        let stdout = cmd.stdout.take();
-                        if let Some(stdout) = stdout {
-                            let mut error: String = "".to_string();
+                        if let Some(stdout) = cmd.stdout.take() {
+                            let mut error = String::new();
                             let mut lines = std::io::BufReader::new(stdout).lines();
                             let mut first = true;
                             while let Some(line) = lines.next() {
                                 error += &line.unwrap();
                                 if !first {
-                                    error += "\n"
+                                    error += "\n";
                                 } else {
                                     first = false;
                                 }
                             }
-                            if error != "" {
+                            if !error.is_empty() {
                                 eprintln!("{}", error);
                             } else {
                                 eprintln!("Mpv encountered an unknown error");

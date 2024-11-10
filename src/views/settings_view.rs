@@ -65,7 +65,7 @@ impl View for SettingsView {
             .on_press(ViewMessage::SettingsViewMessage(Message::SelectFile))
             .padding(10);
 
-        let back_button = button("Retour")
+        let back_button = button("Groupes")
             .on_press(ViewMessage::SettingsViewMessage(Message::BackToGroups))
             .padding(10);
 
