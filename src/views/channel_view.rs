@@ -6,6 +6,12 @@ use iced::{Element, Length};
 use std::cmp::Ordering;
 use std::io::BufRead;
 use std::process::Stdio;
+use std::{
+    env::{consts::OS, current_exe},
+    path::Path,
+};
+use which::which;
+
 
 pub struct ChannelView {
     m3u_filepath: Option<String>,
@@ -111,6 +117,47 @@ impl ChannelView {
     }
 }
 
+fn get_mpv_path() -> String {
+    if OS == "linux" || which("mpv").is_ok() {
+        return "mpv".to_string();
+    } else if OS == "macos" {
+        return find_macos_bin("mpv".to_string());
+    }
+    return get_mpv_path_win();
+}
+
+const MACOS_POTENTIAL_PATHS: [&str; 3] = [
+    "/opt/local/bin",    // MacPorts
+    "/opt/homebrew/bin", // Homebrew on AARCH64 Mac
+    "/usr/local/bin",    // Homebrew on AMD64 Mac
+];
+
+fn find_macos_bin(bin: String) -> String {
+    return MACOS_POTENTIAL_PATHS
+        .iter()
+        .map(|path| {
+            let mut path = Path::new(path).to_path_buf();
+            path.push(&bin);
+            return path;
+        })
+        .find(|path| {        
+            path.exists()
+        })
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| {
+            println!("Could not find mpv binary in common paths, falling back to bundled binary");
+            return bin;
+        });
+}
+
+fn get_mpv_path_win() -> String {
+    let mut path = current_exe().unwrap();
+    path.pop();
+    path.push("deps");
+    path.push("mpv.exe");
+    return path.to_string_lossy().to_string();
+}
+
 impl View for ChannelView {
     fn update(&mut self, message: ViewMessage) -> Option<Box<dyn View>> {
         match message {
@@ -125,7 +172,7 @@ impl View for ChannelView {
                     let selected_channel = self.filtered_channels[index].clone();
                     println!("Chaîne sélectionnée : {}", selected_channel.name);
                     let args = Self::get_play_args(&selected_channel).unwrap();
-                    let mut cmd = std::process::Command::new("mpv")
+                    let mut cmd = std::process::Command::new(get_mpv_path())
                         .args(args)
                         .stdout(Stdio::piped())
                         .spawn()
