@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 use std::io::BufRead;
 use std::process::Stdio;
 use std::{
-    env::{consts::OS, current_exe},
+    env::{consts::OS},
     path::Path,
 };
 use which::which;
@@ -125,7 +125,27 @@ fn get_mpv_path() -> String {
     } else if OS == "macos" {
         return find_macos_bin("mpv".to_string());
     }
-    return get_mpv_path_win();
+    return find_executable_path_windows("mpv.exe");
+}
+
+fn find_executable_path_windows(executable: &str) -> String {
+    let output = std::process::Command::new("where.exe")
+        .arg(executable)
+        .output()
+        .expect("Failed to execute where.exe");
+
+    if !output.status.success() {
+        eprintln!("Failed to find mpv executable");
+        return "mpv".to_string();
+    }
+    
+    let path = String::from_utf8_lossy(&output.stdout);
+    let path = path.trim();
+    if path.is_empty() {
+        eprintln!("Could not find mpv binary in common paths, falling back to bundled binary");
+        return "mpv".to_string();
+    }
+    return path.to_string();
 }
 
 const MACOS_POTENTIAL_PATHS: [&str; 3] = [
@@ -152,14 +172,6 @@ fn find_macos_bin(bin: String) -> String {
         });
 }
 
-fn get_mpv_path_win() -> String {
-    let mut path = current_exe().unwrap();
-    path.pop();
-    path.push("deps");
-    path.push("mpv.exe");
-    return path.to_string_lossy().to_string();
-}
-
 impl View for ChannelView {
     fn update(&mut self, message: ViewMessage) -> Option<Box<dyn View>> {
         match message {
@@ -175,11 +187,16 @@ impl View for ChannelView {
                     println!("Chaîne sélectionnée : {}", selected_channel.name);
                     let path = get_mpv_path();
                     let args = Self::get_play_args(&selected_channel, path.clone()).unwrap();
-                    let mut cmd = std::process::Command::new(path)
+                    let mut cmd = match std::process::Command::new(path)
                         .args(args)
                         .stdout(Stdio::piped())
-                        .spawn()
-                        .unwrap();
+                        .spawn() {
+                            Ok(child) => child,
+                            Err(e) => {
+                                eprintln!("Failed to spawn mpv process: {}", e);
+                                return None;
+                            }
+                        };
 
                     let status = cmd.wait().unwrap();
 
