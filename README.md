@@ -1,13 +1,19 @@
 # Rustream
+
 A Rust project that reads streams from an M3U file, and maybe more one day
 
 ## Prerequisites
+
 The app depends on mpv, ffmpeg and yt-dlp.
+
 If you are on MacOS, you must use Brew or MacPorts to install those dependencies.
 
 On Fedora, you must add rpmfusion to install those packages.
 
 On Debian or LTS distro, I would strongly suggest using a backport for yt-dlp.
+
+On Windows, you can use Scoop or Chocolatey.
+
 ```
 brew install mpv ffmpeg yt-dlp #MacOS
 sudo dnf install mpv ffmpeg yt-dlp #Fedora
