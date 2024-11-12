@@ -39,13 +39,15 @@ impl ChannelView {
         }
     }
 
-    fn get_play_args(channel: &Channel) -> Result<Vec<String>, std::io::Error> {
+    fn get_play_args(channel: &Channel, path: String) -> Result<Vec<String>, std::io::Error> {
         let mut args = vec![channel.url.clone()];
 
         if channel.url.ends_with(".mkv") || channel.url.ends_with(".mp4") {
             args.push("--save-position-on-quit".to_string());
         }
-
+        if OS == "macos" && path != "mpv" {
+            args.push("--script-opts=ytdl_hook-ytdl_path=".to_string() + find_macos_bin("yt-dlp".to_string()).as_str());
+        }
         args.push(format!("--title={}", channel.name));
         args.push("--msg-level=all=error".to_string());
 
@@ -171,8 +173,9 @@ impl View for ChannelView {
                 Message::ChannelSelected(index) => {
                     let selected_channel = self.filtered_channels[index].clone();
                     println!("Chaîne sélectionnée : {}", selected_channel.name);
-                    let args = Self::get_play_args(&selected_channel).unwrap();
-                    let mut cmd = std::process::Command::new(get_mpv_path())
+                    let path = get_mpv_path();
+                    let args = Self::get_play_args(&selected_channel, path.clone()).unwrap();
+                    let mut cmd = std::process::Command::new(path)
                         .args(args)
                         .stdout(Stdio::piped())
                         .spawn()
