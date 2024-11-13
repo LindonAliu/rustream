@@ -1,5 +1,6 @@
 pub mod channel_view;
 pub mod group_view;
+pub mod iced_utils;
 pub mod settings_view;
 
 use iced::Element;

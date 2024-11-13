@@ -1,4 +1,5 @@
 pub mod m3u;
+pub mod mpv;
 pub mod types;
 pub mod ui;
 pub mod views;

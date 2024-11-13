@@ -4,8 +4,11 @@ use m3u::Reader;
 
 use crate::types::Result;
 
-#[derive(Debug, Clone)]
+pub trait Named {
+    fn name(&self) -> &str;
+}
 
+#[derive(Debug, Clone)]
 pub struct Channel {
     pub name: String,
     pub url: String,
@@ -14,10 +17,22 @@ pub struct Channel {
     pub group: String,
 }
 
+impl Named for Channel {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Group {
     pub name: String,
     pub channels: Vec<Channel>,
+}
+
+impl Named for Group {
+    fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 pub fn parse_m3u(m3u_filepath: &str) -> Result<Vec<Group>> {

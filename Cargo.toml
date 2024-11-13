@@ -11,4 +11,4 @@ m3u = { git = "https://github.com/LindonAliu/m3u", branch = "master", features =
 ] }
 url = "2.5.3"
 rfd = "0.15"
-which = "4.0.0"
+which = "7.0.0"

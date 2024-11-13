@@ -1,6 +1,7 @@
+use super::iced_utils::create_buttons;
 use super::{ChannelView, SettingsView, View, ViewMessage};
 use crate::m3u::Group;
-use iced::widget::{button, scrollable, text_input, Column, Container, Row};
+use iced::widget::{button, scrollable, text_input, Column, Container};
 use iced::{Element, Length};
 
 use std::cmp::Ordering;
@@ -68,28 +69,9 @@ impl View for GroupView {
             .size(20)
             .on_input(|s| ViewMessage::GroupViewMessage(Message::SearchTextChanged(s)));
 
-        let groups = self
-            .filtered_groups
-            .iter()
-            .enumerate()
-            .collect::<Vec<_>>()
-            .chunks(4)
-            .fold(Column::new().spacing(10), |column, chunk| {
-                let row = chunk
-                    .iter()
-                    .fold(Row::new().spacing(10), |row, (index, group)| {
-                        row.push(
-                            button(group.name.as_str())
-                                .on_press(ViewMessage::GroupViewMessage(Message::GroupSelected(
-                                    *index,
-                                )))
-                                .padding(10)
-                                .width(Length::Fill)
-                                .height(50),
-                        )
-                    });
-                column.push(row)
-            });
+        let groups = create_buttons(self.filtered_groups.clone(), |index| {
+            ViewMessage::GroupViewMessage(Message::GroupSelected(index))
+        });
 
         Container::new(
             Column::new()
